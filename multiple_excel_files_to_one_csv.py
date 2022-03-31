@@ -32,16 +32,16 @@ for filename in glob.glob(path):
     # estraggo le parti che mi interessano e preparo una singola riga
     rownames=[]
     rownames.append("Stazione")
-    rownames+=(np.squeeze(np.asarray(m[2:21,[3]])).tolist())
-    rownames+=(np.squeeze(np.asarray(m[13:20,[8]])).tolist())
-    rownames+=(np.squeeze(np.asarray(m[2:6,[11]])).tolist())
+    rownames+=(np.squeeze(np.asarray(m[2:21,3])).tolist())
+    rownames+=(np.squeeze(np.asarray(m[13:20,8])).tolist())
+    rownames+=(np.squeeze(np.asarray(m[2:6,11])).tolist())
     rownames.append("Classificazione")
 
     values=[]
     values.append(m[0,2])
-    values+=(np.squeeze(np.asarray(m[2:21,[5]])).tolist())
-    values+=(np.squeeze(np.asarray(m[13:20,[11]])).tolist())
-    values+=(np.squeeze(np.asarray(m[2:6,[12]])).tolist())
+    values+=(np.squeeze(np.asarray(m[2:21,5])).tolist())
+    values+=(np.squeeze(np.asarray(m[13:20,11])).tolist())
+    values+=(np.squeeze(np.asarray(m[2:6,12])).tolist())
     values.append(m[8,11])
 
     if first:
