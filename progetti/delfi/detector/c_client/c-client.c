@@ -10,8 +10,12 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include <sys/socket.h>
+#include <arpa/inet.h>	//inet_addr
 #include <jack/jack.h>
+
+void *connection_handler(void *);
+
 
 char buffer[40960];
 
@@ -140,7 +144,60 @@ main (int argc, char *argv[])
 
 	/* keep running until stopped by the user */
 
-	sleep (-1);
+	//sleep (-1);
+
+
+        // gestione socket
+        
+	int socket_desc , new_socket , c , *new_sock;
+	struct sockaddr_in server , socket_client;
+	char *message;
+	
+	//Create socket
+	socket_desc = socket(AF_INET , SOCK_STREAM , 0);
+	if (socket_desc == -1)
+	{
+		printf("Could not create socket");
+	}
+	
+	//Prepare the sockaddr_in structure
+	server.sin_family = AF_INET;
+	server.sin_addr.s_addr = INADDR_ANY;
+	server.sin_port = htons( 8888 );
+	
+	//Bind
+	if( bind(socket_desc,(struct sockaddr *)&server , sizeof(server)) < 0)
+	{
+		puts("bind failed");
+		return 1;
+	}
+	puts("bind done");
+	
+	//Listen
+	listen(socket_desc , 3);
+	
+	//Accept and incoming connection
+	puts("Waiting for incoming connections...");
+	c = sizeof(struct sockaddr_in);
+	while( (new_socket = accept(socket_desc, (struct sockaddr *)&socket_client, (socklen_t*)&c)) )
+	{
+		puts("Connection accepted");
+		
+	        pthread_t sniffer_thread;
+		new_sock = malloc(1);
+		*new_sock = new_socket;
+		
+		if( pthread_create( &sniffer_thread , NULL ,  connection_handler , (void*) new_sock) < 0)
+		{
+			perror("could not create thread");
+			return 1;
+		}
+		
+		puts("Handler assigned");
+	}        
+        
+        
+       // fine gestione socket
 
 	/* this is never reached but if the program
 	   had some other way to exit besides being killed,
@@ -150,3 +207,31 @@ main (int argc, char *argv[])
 	jack_client_close (client);
 	exit (0);
 }
+
+void *connection_handler(void *socket_desc)
+{
+	//Get the socket descriptor
+	int sock = *(int*)socket_desc;
+	int readed;
+	char client_data[1024];
+	
+	while ((readed = recv(sock, client_data, sizeof(client_data),0)) > 0) {
+            write (sock, buffer, sizeof(buffer));
+            if (strcmp(client_data,"exit")==0){
+                break;
+            }	
+	}
+	
+        if (readed == 0) {
+		puts("Client disconnected");
+		fflush(stdout);                   
+        }
+	
+	//Free the socket pointer
+	free(socket_desc);
+	
+	return 0;
+}
+
+
+
