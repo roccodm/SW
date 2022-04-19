@@ -1,0 +1,1 @@
+gcc c-client.c -o c-client -lm -lsndfile -ljack -lpthread -L/usr/local/lib
