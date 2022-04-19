@@ -1,8 +1,13 @@
 /** @file c_client.c
  * based on https://github.com/jackaudio/example-clients/blob/master/simple_client.c
  *
- * @brief This simple client demonstrates the most basic features of JACK
- * as they would be used by many applications.
+ 
+ samplerate = numero di campioni per secondo
+ frame = blocco di campionamento composto da n campioni. Più è basso, più è realtime (e a rischio xrun)
+ nframe = samplerate/frame = numero di frame per un secondo di campionamento
+ 
+ 
+ 
  */
 
 #include <stdio.h>
@@ -17,7 +22,80 @@
 void *connection_handler(void *);
 
 
-char buffer[40960];
+typedef struct ring_node_t {
+    jack_default_audio_sample_t *data;
+    struct ring_node_t *next;  
+    unsigned short int populated; 
+} ring_node, *p_ring_node;
+
+
+typedef struct sample_ring_t{
+    int len;
+    unsigned short int populated;
+    jack_nframes_t nframes;
+    jack_nframes_t samplerate;
+    int seconds;
+    ring_node *last;  
+} sample_ring;
+
+
+sample_ring MyRing;
+
+int create_sample_ring(sample_ring *ring, int nelements, jack_nframes_t samplerate, jack_nframes_t nframes, int seconds){
+    ring->len = nelements;
+    ring->nframes = nframes;
+    ring->samplerate = samplerate;
+    ring->seconds = seconds;
+    ring_node *first,*last,*new;
+    jack_default_audio_sample_t *data;
+    
+    int i;
+    for (i=0; i<nelements; i++) {
+        data = (jack_default_audio_sample_t *) malloc(sizeof (jack_default_audio_sample_t) * nframes);
+        if (data == NULL){
+            return -1;
+            printf("Impossibile allocare memoria per i dati");
+        }
+        if (i == 0) { // primo elemento   
+             first =  malloc(sizeof(ring_node));
+             last = first;
+        } else {
+             new =  malloc(sizeof(ring_node));
+             last->next = new;
+             last = new;
+        }
+        last->data = data;
+        printf ("%d %x %x %x\n",i, (int) last,(int)new,(int)last->next);
+    }
+    last->next = first;
+    ring->last = first;
+    return 1;
+}
+
+
+int ring_debug(sample_ring *ring){
+    ring_node *first,*current;
+    first = current = ring->last;
+    
+    int i=0;
+    while (current->next != first){
+        printf ("%d: %x -> %x\n",i,(int)current,(int)current->data);
+        current = current -> next;        
+        i++;
+    } 
+    return 1;
+}
+
+
+
+int add_to_ring(sample_ring *ring, jack_default_audio_sample_t *data){
+     ring_node *current;
+     current = ring->last;
+     memcpy (current->data, data, sizeof (jack_default_audio_sample_t) * ring->nframes);
+     ring->last = current->next;
+     return 1;     
+}
+
 
 jack_port_t *input_port;
 jack_port_t *output_port;
@@ -37,8 +115,16 @@ process (jack_nframes_t nframes, void *arg)
 	jack_default_audio_sample_t *in;
 	in = jack_port_get_buffer (input_port, nframes);
 	
-	memcpy (buffer, in,
-		sizeof (jack_default_audio_sample_t) * nframes);
+	add_to_ring (&MyRing,in);
+	
+     //ring_node *current;
+     //current = MyRing.last;
+     //memcpy (current->data, in, sizeof (jack_default_audio_sample_t) * nframes);
+     //MyRing.last = current->next;
+	
+	
+//	memcpy (buffer, in,
+//		sizeof (jack_default_audio_sample_t) * nframes);
 
         //printf ("Nframes: %ld", nframes * sizeof (jack_default_audio_sample_t));
 	return 0;      
@@ -81,6 +167,18 @@ main (int argc, char *argv[])
 		client_name = jack_get_client_name(client);
 		fprintf (stderr, "unique name `%s' assigned\n", client_name);
 	}
+
+       // inizializzo struttura dati
+       int nelements=jack_get_sample_rate (client) / jack_get_buffer_size(client)*1;  // manca n seconds!
+       
+       create_sample_ring(&MyRing, nelements, jack_get_sample_rate (client), jack_get_buffer_size(client), 1);
+
+       printf ("len %d\n", MyRing.len);
+       printf ("nframes %d\n", MyRing.nframes);
+       printf ("sr %d\n",MyRing.samplerate);
+       printf ("pointer %x\n",(int)MyRing.last);
+
+       ring_debug(&MyRing);
 
 	/* tell the JACK server to call `process()' whenever
 	   there is work to be done.
@@ -214,13 +312,26 @@ void *connection_handler(void *socket_desc)
 	int sock = *(int*)socket_desc;
 	int readed;
 	char client_data[1024];
+	char buffer[256];
 	
 	while ((readed = recv(sock, client_data, sizeof(client_data),0)) > 0) {
-            write (sock, buffer, sizeof(buffer));
-            if (strcmp(client_data,"exit")==0){
-                break;
+            
+            sprintf(buffer,"Pointer corrente: %x\n", MyRing.last);
+            if (strncmp(client_data,"dump",4)==0){
+                ring_node *first,*current;
+                first = current = MyRing.last;
+    
+                int i=0;
+               while (current->next != first){
+                   send(sock, current->data, sizeof (jack_default_audio_sample_t) * MyRing.nframes, 0);
+                   printf ("%d: %x -> %x\n",i,(int)current,(int)current->data);
+                   current = current -> next;        
+                   i++;
+               } 
+
             }	
-	}
+            write (sock, buffer, sizeof(buffer));
+ 	}
 	
         if (readed == 0) {
 		puts("Client disconnected");
