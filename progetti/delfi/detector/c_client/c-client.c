@@ -77,12 +77,16 @@ int ring_debug(sample_ring *ring){
     ring_node *first,*current;
     first = current = ring->last;
     
+    printf ("il primo: %x \n",first);
+    
     int i=0;
-    while (current->next != first){
-        printf ("%d: %x -> %x\n",i,(int)current,(int)current->data);
-        current = current -> next;        
+    do {
+        printf ("%d: %x -> %x\n",i,(int)current,(int)current->next);
         i++;
-    } 
+        current = current -> next;        
+    } while (current != first);
+    printf ("esco con current: %x \n",current);
+    printf ("il primo: %x \n",first);
     return 1;
 }
 
@@ -169,7 +173,7 @@ main (int argc, char *argv[])
 	}
 
        // inizializzo struttura dati
-       int nelements=jack_get_sample_rate (client) / jack_get_buffer_size(client)*1;  // manca n seconds!
+       int nelements=jack_get_sample_rate (client) / jack_get_buffer_size(client)*5;  // manca n seconds!
        
        create_sample_ring(&MyRing, nelements, jack_get_sample_rate (client), jack_get_buffer_size(client), 1);
 
@@ -322,13 +326,13 @@ void *connection_handler(void *socket_desc)
                 first = current = MyRing.last;
     
                 int i=0;
-               while (current->next != first){
-                   send(sock, current->data, sizeof (jack_default_audio_sample_t) * MyRing.nframes, 0);
-                   printf ("%d: %x -> %x\n",i,(int)current,(int)current->data);
-                   current = current -> next;        
-                   i++;
-               } 
-
+                printf ("Size of transission block: %ld\n", sizeof (jack_default_audio_sample_t) * MyRing.nframes);
+                do {
+                    send(sock, current->data, sizeof (jack_default_audio_sample_t) * MyRing.nframes, 0);
+                    current = current -> next;        
+                    i++;
+                } while (current != first);
+                printf ("Number of cycles: %d\n",i);
             }	
             write (sock, buffer, sizeof(buffer));
  	}
