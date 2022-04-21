@@ -1,5 +1,7 @@
 /** @file jackclient.c
- * 
+ *  
+ * Simple jack client that manage a single audio input port and populate the ringbuffer 
+ *  
  */
  
  
@@ -8,13 +10,8 @@
  #include "jackclient.h"
  
  
-/**
- * The process callback for this JACK application is called in a
- * special realtime thread once for each audio cycle.
- *
- * This client does nothing more than copy data from its input
- * port to its output port. It will exit when stopped by 
- * the user (e.g. using Ctrl-C on a unix-ish operating system)
+/** function process
+ * this is a JACK callback function called every time there is a new audio block available
  */
 int process (jack_nframes_t nframes, void *arg)
 {
