@@ -11,11 +11,25 @@
 	int sock = *(int*)socket_desc;
 	int readed;
 	char client_data[1024];
-	char buffer[256];
+	char out[256];
 	
 	while ((readed = recv(sock, client_data, sizeof(client_data),0)) > 0) {
-            
-            sprintf(buffer,"Pointer corrente: %p\n", MyRing.last);
+            if (strncmp(client_data,"rate",4)==0){
+                sprintf(out,"%d\n",MyRing.samplerate);
+                write (sock, out, sizeof(out));            
+            }
+            if (strncmp(client_data,"len",3)==0){
+                sprintf(out,"%d\n",MyRing.len);
+                write (sock, out, sizeof(out));            
+            }
+            if (strncmp(client_data,"nframes",7)==0){
+                sprintf(out,"%d\n",MyRing.nframes);
+                write (sock, out, sizeof(out));            
+            }
+            if (strncmp(client_data,"seconds",7)==0){
+                sprintf(out,"%d\n",MyRing.seconds);
+                write (sock, out, sizeof(out));            
+            }            
             if (strncmp(client_data,"dump",4)==0){
                 ring_node *first,*current;
                 first = current = MyRing.last;
@@ -29,7 +43,6 @@
                 } while (current != first);
                 printf ("Number of cycles: %d\n",i);
             }	
-            write (sock, buffer, sizeof(buffer));
  	}
 	
         if (readed == 0) {

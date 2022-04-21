@@ -8,6 +8,7 @@
 #include "jackclient.h"
 #include "ringbuffer.h"
 #include "socketserver.h"
+#include "argparser.h"
 
 
 // initialize the ring structure as global variable 
@@ -20,16 +21,28 @@ jack_client_t *client;
 
 
 
+static struct argp argp = {options, parse_opt, args_doc, doc};
+
 int main (int argc, char *argv[]) {
 	const char **ports;
-	const char *client_name = "DolphinDetector";
 	const char *server_name = NULL;
 	jack_options_t options = JackNullOption;
 	jack_status_t status;
 	
+	// create a new struct to hold arguments.
+        struct arguments arguments;
+
+        // set the default values for all of the args.
+        arguments.name="RingServer";
+        arguments.port=8888;
+        arguments.seconds=5;
+        // parse the cli arguments.
+        argp_parse(&argp, argc, argv, 0, 0, &arguments);
+
+
 	/* open a client connection to the JACK server */
 
-	client = jack_client_open (client_name, options, &status, server_name);
+	client = jack_client_open (arguments.name, options, &status, server_name);
 	if (client == NULL) {
 		fprintf (stderr, "jack_client_open() failed, "
 			 "status = 0x%2.0x\n", status);
@@ -42,19 +55,13 @@ int main (int argc, char *argv[]) {
 		fprintf (stderr, "JACK server started\n");
 	}
 	if (status & JackNameNotUnique) {
-		client_name = jack_get_client_name(client);
-		fprintf (stderr, "unique name `%s' assigned\n", client_name);
+		fprintf (stderr, "unique name `%s' assigned\n", jack_get_client_name(client));
 	}
 
        // inizializzo struttura dati
-       int nelements=jack_get_sample_rate (client) / jack_get_buffer_size(client)*5;  // manca n seconds!
+       int nelements = jack_get_sample_rate(client) / jack_get_buffer_size(client) * arguments.seconds;  // manca n seconds!
        
-       create_sample_ring(&MyRing, nelements, jack_get_sample_rate (client), jack_get_buffer_size(client), 1);
-
-       printf ("len %d\n", MyRing.len);
-       printf ("nframes %d\n", MyRing.nframes);
-       printf ("sr %d\n",MyRing.samplerate);
-       printf ("pointer %p\n",MyRing.last);
+       create_sample_ring(&MyRing, nelements, jack_get_sample_rate (client), jack_get_buffer_size(client), arguments.seconds);
 
        ring_debug(&MyRing);
 
@@ -71,13 +78,6 @@ int main (int argc, char *argv[]) {
 
 	jack_on_shutdown (client, jack_shutdown, 0);
 
-	/* display the current sample rate. 
-	 */
-
-	printf ("engine sample rate: %" PRIu32 "\n",
-		jack_get_sample_rate (client));
-
-	/* create two ports */
 
 	input_port = jack_port_register (client, "input",
 					 JACK_DEFAULT_AUDIO_TYPE,
@@ -139,7 +139,7 @@ int main (int argc, char *argv[]) {
 	//Prepare the sockaddr_in structure
 	server.sin_family = AF_INET;
 	server.sin_addr.s_addr = INADDR_ANY;
-	server.sin_port = htons( 8888 );
+	server.sin_port = htons( arguments.port );
 	
 	//Bind
 	if( bind(socket_desc,(struct sockaddr *)&server , sizeof(server)) < 0)
