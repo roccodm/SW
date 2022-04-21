@@ -1,8 +1,10 @@
 # WhatIsThis?
 
  It's a simple, lightweight audio component that acts as:
- - Jackd audio client 
- - Tcp socket server
+ 
+ * Jackd audio client 
+ * Tcp socket server
+ 
  and uses a particular ringbuffer to store the last ``n`` seconds of recording 
  the tcp socket server can trasmit to the client the whole buffer that contains
  exactely the last ``n`` seconds recorded (using ``dump`` request).
