@@ -1,5 +1,9 @@
 /** @file ringbuffer.c
  * 
+ *  This ringbuffer is designed to be filled (almost) in realtime by the jack_client process
+ *  the aim of this data structure is to store the last ``n`` seconds of recording in every moment
+ *  so, once filled for the first time, every incoming block to be stored will overwrite the oldest one
+ * 
  */
 #include <stdio.h> 
 #include <stdlib.h>
