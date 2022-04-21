@@ -1,0 +1,1 @@
+gcc -o jack-ring-socket-server main.c jackclient.c ringbuffer.c socketserver.c -lm -lsndfile -ljack -lpthread
