@@ -5,55 +5,97 @@
 #include <stdlib.h>
 #include <string.h>
 #include "ringbuffer.h"
- 
- int create_sample_ring(sample_ring *ring, int nelements, jack_nframes_t samplerate, jack_nframes_t nframes, int seconds){
+
+/** function create_sample_ring
+ *     create and initialize the ring structure
+ *
+ * Input values:
+ *     sample_ring *ring: a pointer to the global defined ring structure
+ *     int nelements: how many frame blocks will be stored in the ring
+ *     jack_nframes_t samplerate: samplerate returned from jack-server
+ *     jack_nframes_t nframes: the number of frames contained in each block
+ *     int seconds: the lenght of stored audio data in seconds
+ *
+ * returns:
+ *     1 in case of success
+ *     -1 otherwise 
+ */
+int create_sample_ring(sample_ring *ring, int nelements, jack_nframes_t samplerate, jack_nframes_t nframes, int seconds){
+    // Populate ring structure with given values
     ring->len = nelements;
     ring->nframes = nframes;
     ring->samplerate = samplerate;
     ring->seconds = seconds;
-    ring_node *first,*last,*new;
+    // defining 3 ring element pointers
+    ring_node *first,*current,*new;
+    // a pointer to the audio data block
     jack_default_audio_sample_t *data;
     
+    // the ring have a number of nelements ring_nodes, each of these connected with the next one
+    // the last one will be connected with the first    
     int i;
     for (i=0; i<nelements; i++) {
+        // allocate memory to store the sample.
         data = (jack_default_audio_sample_t *) malloc(sizeof (jack_default_audio_sample_t) * nframes);
         if (data == NULL){
             return -1;
-            printf("Impossibile allocare memoria per i dati");
         }
-        if (i == 0) { // primo elemento   
+        // add a new ring_node...
+        if (i == 0) {
+             // this is the first one...   
              first =  malloc(sizeof(ring_node));
-             last = first;
+             current = first;
         } else {
              new =  malloc(sizeof(ring_node));
-             last->next = new;
-             last = new;
+             current->next = new;
+             current = new;
         }
-        last->data = data;
-        printf ("%d %p %p %p\n",i, last,new,last->next);
+        current->data = data;
     }
-    last->next = first;
+    // closing the ring...
+    current->next = first;
     ring->last = first;
     return 1;
 }
 
+
+
+/** function ring_debug
+ *     print the ring structure, showing pointers
+ *
+ * Input values:
+ *     sample_ring *ring: a pointer to the global defined ring structure
+ *
+ * returs:
+ *     nothing
+ */
 int ring_debug(sample_ring *ring){
     ring_node *first,*current;
+    printf ("*** Ring buffer debug\nRing len:\t%d\nnFrames:\t%d\nSamplerate:\t%d\nSeconds:\t%d\nLast ptr:\t%p\n\n",
+            ring->len, ring->nframes, ring->samplerate, ring->seconds, ring->last);
     first = current = ring->last;
-    
-    printf ("il primo: %p \n",first);
-    
+    printf ("First element in the ringbuffer: [%p]\n",first);
+    printf ("Nodes structure:\nElement\tNode addr\tNext ptr\tData addr\n");    
     int i=0;
     do {
-        printf ("%d: %p -> %p\n",i,current,current->next);
+        printf ("%d\t%p\t%p\t%p\n",i,current,current->next,current->data);
         i++;
         current = current -> next;        
     } while (current != first);
-    printf ("esco con current: %p \n",current);
-    printf ("il primo: %p \n",first);
     return 1;
 }
 
+/** function add_to_ring
+ *     add an frames block in the first available node (overwriting if already filled)
+ *     and update the ring->last to the next node
+ *     
+ * Input values:
+ *     sample_ring *ring: a pointer to the global defined ring structure
+ *     jack_default_audio_sample_t *data: the audio data passed by jack-client process
+ *
+ * returs:
+ *     nothing
+ */
 int add_to_ring(sample_ring *ring, jack_default_audio_sample_t *data){
      ring_node *current;
      current = ring->last;
